@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "icsee-cloud"
+version = "0.1.0"
+description = "An unofficial toolkit for authenticated iCSee cloud access and camera streaming"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+  "cryptography>=43",
+  "Pillow>=10",
+  "av>=16.1,<17",
+  "tzdata>=2025.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "build>=1"]
+
+[project.scripts]
+icsee-cloud = "icsee_cloud.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

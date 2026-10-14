@@ -1,0 +1,6 @@
+{
+  "uuid": "YOUR_CLIENT_UUID",
+  "app_key": "YOUR_CLIENT_APP_KEY",
+  "app_secret": "YOUR_CLIENT_APP_SECRET",
+  "moved_card": 0
+}

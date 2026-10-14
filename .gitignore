@@ -1,0 +1,50 @@
+# Local accounts, identities, camera configuration and evidence
+.env
+.env.*
+!.env.example
+*.local.json
+*.local.toml
+.research/
+private/
+
+# Downloaded vendor/runtime binaries and private footage
+apk/
+runtime/
+recordings/
+logs/
+*.apk
+*.apks
+*.so
+*.dll
+*.exe
+*.keystore
+*.pcap
+*.pcapng
+*.mkv
+*.mp4
+*.hevc
+*.h264
+
+# Python and editor/build output
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+.idea/
+.vscode/
+node_modules/
+
+# Local compatibility launchers retained for the existing installation
+/watch_live.py
+/record_24h.py
+/icsee_av.py
+/stop_*.py
+/Watch-*.ps1
+/Start-*Recording.ps1
+/Stop-*Recording.ps1
+/Run-*Recording.ps1
