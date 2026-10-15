@@ -13,3 +13,7 @@ helper does not grant rights to redistribute vendor APKs or SDK binaries.
 REA is an external research tool used during investigation. Its checkout is kept
 outside this repository and is not needed to run the Python package. No REA code
 has been copied into this package.
+
+The local web interface bundles selected icons from `lucide-static` 1.57.0.
+Lucide's license and attribution are retained in
+`src/icsee_cloud/web/lucide-LICENSE.txt`. No third-party CDN is used at runtime.

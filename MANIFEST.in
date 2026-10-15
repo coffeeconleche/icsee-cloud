@@ -5,6 +5,7 @@ recursive-include scripts *.ps1
 recursive-include tools *.py
 recursive-include android *.java *.xml
 recursive-include tests *.py
+recursive-include src/icsee_cloud/web *.html *.css *.js *.svg *.txt
 prune .research
 prune runtime
 prune recordings

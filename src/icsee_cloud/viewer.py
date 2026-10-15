@@ -10,11 +10,12 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import quote_plus, unquote
+from urllib.parse import quote_plus, unquote, urlsplit
 from PIL import Image
 
 from .config import ROOT, Settings
 from .cloud import CloudClient, ClientIdentity
+from .frontend import frontend_asset
 SETTINGS = Settings.load()
 PRIVATE = ROOT / '.research'
 PKG = 'local.icsee.probe'
@@ -315,43 +316,25 @@ class LiveView:
         self.config = None
         for output in self.files: output.close()
 
-PAGE = br'''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>iCSee Cloud</title>
-<style>body{background:#101318;color:#f4f6fa;font:16px system-ui;margin:0;text-align:center}header{padding:16px;display:flex;justify-content:center;gap:16px;align-items:center;flex-wrap:wrap}h1{font-size:22px;margin:0}img{max-height:82vh;max-width:96vw;background:#191e26}button{background:#263242;border:1px solid transparent;border-radius:8px;padding:8px 14px;color:white;cursor:pointer}button[aria-pressed=true]{background:#1f6547;border-color:#95e6b2}button:disabled{opacity:.55;cursor:wait}#state{color:#95e6b2}#resolution{color:#abb6c6;font-size:14px}.quality{display:flex;gap:6px;align-items:center}</style>
-<header><h1 id="camera">Camera</h1><span id="state">Connecting...</span><div class="quality" role="group" aria-label="Camera quality"><span>Quality</span><button id="low" aria-pressed="false" onclick="changeQuality('low')">Low</button><button id="high" aria-pressed="false" onclick="changeQuality('high')">High</button></div><span id="resolution"></span><span id="recording"></span><button id="stop" onclick="stopVideo()">Stop</button></header><img id="video" src="/stream.mjpeg" alt="Camera live stream">
-<script>
-let stopped=false;
-async function refresh(){
- if(stopped)return;
- try{
-  const s=await(await fetch('/status',{cache:'no-store'})).json();
-  document.getElementById('camera').textContent=s.camera;
-  document.getElementById('state').textContent=s.switching?'Switching quality...':s.status;
-  document.getElementById('resolution').textContent=s.resolution?s.resolution.replace('x',' \u00d7 '):'';
-  for(const q of ['low','high']){const b=document.getElementById(q);b.disabled=s.switching||!!s.recording;b.setAttribute('aria-pressed',s.quality===q&&!s.switching?'true':'false')}
-  if(s.recording){
-   const r=s.recording;
-   const recordingTime=d=>new Date(d).toLocaleString(undefined,{timeZone:r.timezone||'UTC',hour12:false});
-   const end=r.indefinite?'Until manually stopped':'Ends '+recordingTime(r.deadline_utc)+' ('+(r.timezone||'UTC')+')';
-   const clock=r.current_time_local?' | '+(r.timezone||'UTC')+': '+recordingTime(r.current_time_local):'';
-   document.getElementById('recording').textContent='Recording '+(r.audio_enabled?'with audio':'video only')+': '+r.clip_count+' clips, '+(r.saved_bytes/1e6).toFixed(1)+' MB | '+end+clock;
-   document.getElementById('stop').textContent='Stop recording';
-  }
- }catch(e){document.getElementById('state').textContent='Connection unavailable'}
-}
-async function changeQuality(quality){for(const q of ['low','high'])document.getElementById(q).disabled=true;document.getElementById('state').textContent='Switching quality...';try{const r=await fetch('/quality',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({quality})});if(!r.ok){const e=await r.json();document.getElementById('state').textContent=e.error}}catch(e){document.getElementById('state').textContent='Could not change quality'}await refresh()}
-async function stopVideo(){await fetch('/stop',{method:'POST'});stopped=true;document.getElementById('state').textContent='Stopped';document.getElementById('video').src='';for(const q of ['low','high'])document.getElementById(q).disabled=true}
-refresh();setInterval(refresh,1500);
-</script></html>'''
 
 def serve(view):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args): pass
         def do_GET(self):
-            if self.path == '/':
-                self.send_response(200); self.send_header('Content-Type', 'text/html; charset=utf-8'); self.end_headers(); self.wfile.write(PAGE)
-            elif self.path == '/status':
+            path = urlsplit(self.path).path
+            asset = frontend_asset(path)
+            if asset is not None:
+                body, content_type = asset
+                self.send_response(200)
+                self.send_header('Content-Type', content_type)
+                self.send_header('Content-Length', str(len(body)))
+                self.send_header('Cache-Control', 'no-cache')
+                self.send_header('X-Content-Type-Options', 'nosniff')
+                self.send_header('Content-Security-Policy', "default-src 'self'; img-src 'self' blob: data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
+                self.end_headers(); self.wfile.write(body)
+            elif path == '/status':
                 self.send_response(200); self.send_header('Content-Type', 'application/json'); self.send_header('Cache-Control', 'no-store'); self.end_headers(); self.wfile.write(json.dumps(view.status()).encode())
-            elif self.path == '/stream.mjpeg':
+            elif path == '/stream.mjpeg':
                 self.send_response(200); self.send_header('Content-Type', 'multipart/x-mixed-replace; boundary=frame'); self.send_header('Cache-Control', 'no-store'); self.end_headers()
                 seen = -1
                 try:

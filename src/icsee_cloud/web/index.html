@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Your local iCSee camera workspace. Live video and recording, in one clear view.">
+  <title>Live view · iCSee Cloud</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#live-view">Skip to live view</a>
+  <button class="nav-backdrop" id="nav-backdrop" aria-label="Close navigation" hidden></button>
+  <div class="app-layout">
+    <aside class="sidebar" id="sidebar" aria-label="Workspace navigation">
+      <a class="brand" href="#live-view" aria-label="iCSee Cloud home">
+        <span class="brand-mark"><svg class="icon"><use href="/static/icons.svg#cloud"></use></svg></span>
+        <span>icsee<span class="brand-light">cloud</span><small>YOUR CAMERA WORKSPACE</small></span>
+      </a>
+      <div class="nav-section-label">WORKSPACE</div>
+      <nav class="nav-links">
+        <a class="nav-link active" href="#live-view" aria-current="page"><svg class="icon"><use href="/static/icons.svg#monitor-play"></use></svg>Live view<span class="nav-count">01</span></a>
+        <a class="nav-link" href="#recording-panel"><svg class="icon"><use href="/static/icons.svg#circle-dot"></use></svg>Recording</a>
+        <a class="nav-link" href="#connection-panel"><svg class="icon"><use href="/static/icons.svg#wifi"></use></svg>Connection</a>
+      </nav>
+      <div class="nav-section-label camera-section-label">SELECTED CAMERA</div>
+      <div class="sidebar-camera">
+        <span class="sidebar-camera-icon"><svg class="icon"><use href="/static/icons.svg#camera"></use></svg></span>
+        <div class="sidebar-camera-copy"><strong data-camera-name>Camera</strong><span><i class="status-dot" id="sidebar-dot"></i><span id="sidebar-state">Connecting</span></span></div>
+      </div>
+      <div class="sidebar-footer">
+        <div class="local-session"><span class="session-icon"><svg class="icon"><use href="/static/icons.svg#shield-check"></use></svg></span><div><strong>Local workspace</strong><span>On this computer</span></div><span class="local-pill">LOCAL</span></div>
+        <p>Made for a clearer view.</p>
+      </div>
+    </aside>
+
+    <main class="main-content" id="main-content">
+      <div class="topbar">
+        <div class="breadcrumbs"><button class="icon-button mobile-menu" id="menu-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="sidebar"><svg class="icon"><use href="/static/icons.svg#menu"></use></svg></button><span>Workspace</span><svg class="icon breadcrumb-arrow"><use href="/static/icons.svg#chevron-right"></use></svg><strong>Live view</strong></div>
+        <div class="topbar-actions"><span class="local-label"><svg class="icon"><use href="/static/icons.svg#shield-check"></use></svg>Local connection</span><button class="icon-button" id="theme-toggle" aria-label="Switch to dark theme" title="Switch theme"><svg class="icon"><use id="theme-icon" href="/static/icons.svg#moon"></use></svg></button><button class="icon-button" id="details-button" aria-label="Session details" title="Session details"><svg class="icon"><use href="/static/icons.svg#sliders-horizontal"></use></svg></button></div>
+      </div>
+
+      <header class="page-heading"><div><div class="eyebrow">A LITTLE PEACE OF MIND</div><h1>Live overview<span class="heading-dot">.</span></h1><p>Your camera and recordings, all in one place.</p></div><div class="workspace-clock"><span id="workspace-date">—</span><strong id="workspace-time">—<small>UTC</small></strong></div></header>
+
+      <section class="summary-grid" aria-label="Session summary">
+        <article class="summary-card"><div class="summary-label"><span>Camera status</span><svg class="icon"><use href="/static/icons.svg#video"></use></svg></div><div class="summary-value"><span id="summary-connection">Connecting</span><span class="pill" id="summary-state-pill">WAITING</span></div><p id="summary-connection-note">Establishing your live view</p></article>
+        <article class="summary-card"><div class="summary-label"><span>Stream quality</span><svg class="icon"><use href="/static/icons.svg#monitor-play"></use></svg></div><div class="summary-value"><span id="summary-quality">—</span><small id="summary-resolution">—</small></div><p id="summary-quality-note">Original camera stream</p></article>
+        <article class="summary-card"><div class="summary-label"><span>Footage saved</span><svg class="icon"><use href="/static/icons.svg#hard-drive"></use></svg></div><div class="summary-value"><span id="saved-value">—</span><small id="saved-unit"></small></div><p id="saved-note">Recording information appears here</p></article>
+      </section>
+
+      <div class="workspace-grid">
+        <section class="live-card panel" id="live-view" aria-labelledby="live-title">
+          <header class="panel-header"><div class="panel-title-group"><span class="camera-glyph"><svg class="icon"><use href="/static/icons.svg#camera"></use></svg></span><div><h2 id="live-title" data-camera-name>Camera</h2><span class="panel-subtitle" id="camera-subtitle">Live stream</span></div></div><span class="live-indicator" id="live-indicator"><i class="status-dot"></i><span>Connecting</span></span></header>
+          <div class="video-stage" id="video-stage">
+            <img id="video" src="/stream.mjpeg" alt="Selected camera live stream">
+            <div class="video-placeholder" id="video-placeholder"><span class="placeholder-icon"><svg class="icon"><use href="/static/icons.svg#camera"></use></svg></span><strong id="placeholder-title">Bringing your camera into view</strong><p id="placeholder-note">The preview will appear as soon as video arrives.</p><span class="loading-dots" aria-hidden="true"><i></i><i></i><i></i></span></div>
+            <div class="video-top-overlay"><span class="on-video-badge" id="video-live-badge"><i class="status-dot"></i><span>LIVE</span></span><span class="on-video-quality" id="video-quality">—</span></div>
+            <div class="video-bottom-overlay"><div><span class="video-camera-name" data-camera-name>Camera</span><span class="video-clock" id="video-clock">—</span></div><span class="on-video-recording" id="video-recording" hidden><i></i>REC</span></div>
+            <button class="exit-fullscreen icon-button" id="exit-fullscreen" aria-label="Exit fullscreen" title="Exit fullscreen"><svg class="icon"><use href="/static/icons.svg#x"></use></svg></button>
+          </div>
+          <footer class="video-toolbar"><button class="silent-preview" id="audio-info" title="About preview audio"><svg class="icon"><use href="/static/icons.svg#volume-x"></use></svg><span>Silent preview</span></button><div class="viewer-tools"><button class="icon-button" id="snapshot-button" aria-label="Save a snapshot" title="Save a snapshot" disabled><svg class="icon"><use href="/static/icons.svg#camera"></use></svg></button><span class="toolbar-divider"></span><button class="icon-button" id="fullscreen-button" aria-label="Expand live view" title="Expand live view"><svg class="icon"><use href="/static/icons.svg#expand"></use></svg></button></div></footer>
+          <div class="quality-row"><div><strong>Video quality</strong><p id="quality-hint">Choose the stream that works for you.</p></div><div class="quality-switch" role="group" aria-label="Camera quality"><button id="quality-low" aria-pressed="false" aria-label="Low quality substream">Low<span>SUB</span></button><button id="quality-high" aria-pressed="false" aria-label="High quality main stream">High<span>MAIN</span></button></div></div>
+        </section>
+
+        <div class="right-column">
+          <section class="recording-card panel" id="recording-panel" aria-labelledby="recording-title">
+            <header class="panel-header"><h2 id="recording-title">Recording</h2><span class="pill" id="recording-state">WAITING</span></header>
+            <div class="recording-body"><div class="recording-hero"><span class="recording-icon" id="recording-icon"><svg class="icon"><use href="/static/icons.svg#circle-dot"></use></svg></span><div><h3 id="recording-mode">Checking recording</h3><p id="recording-description">Your recording status will appear here.</p></div></div>
+              <dl class="recording-details"><div><dt><svg class="icon"><use href="/static/icons.svg#clock-3"></use></svg>Clip length</dt><dd id="clip-length">—</dd></div><div><dt><svg class="icon"><use href="/static/icons.svg#audio-lines"></use></svg>Saved audio</dt><dd id="audio-status">—</dd></div><div><dt><svg class="icon"><use href="/static/icons.svg#folder-open"></use></svg>Folder grouping</dt><dd id="folder-grouping">—</dd></div></dl>
+              <div class="clip-progress" id="clip-progress" hidden><div><span>Next clip boundary</span><strong id="next-clip">—</strong></div><progress id="clip-bar" value="0" max="300" aria-label="Time until next scheduled clip boundary"></progress><p>Clips cut at the next camera keyframe.</p></div>
+              <button class="stop-button" id="stop-button" disabled><svg class="icon"><use href="/static/icons.svg#square"></use></svg><span>Stop live view</span></button>
+              <p class="recording-reassurance" id="recording-reassurance">Closing this tab does not stop a recording.</p>
+            </div>
+          </section>
+
+          <section class="connection-card panel" id="connection-panel" aria-labelledby="connection-title"><header class="panel-header"><h2 id="connection-title">Connection</h2><svg class="icon muted-icon"><use href="/static/icons.svg#wifi"></use></svg></header><dl class="connection-details"><div><dt>Live video</dt><dd id="connection-state">Connecting</dd></div><div><dt>Last frame</dt><dd id="frame-age">—</dd></div><div><dt>Automatic recovery</dt><dd id="recovery-state">—</dd></div></dl><div class="connection-footnote"><span class="status-dot" id="connection-dot"></span><span id="connection-note">Waiting for the camera</span></div></section>
+        </div>
+
+        <section class="archive-card panel" id="recording-location" aria-labelledby="archive-title"><div class="archive-icon"><svg class="icon"><use href="/static/icons.svg#folder-open"></use></svg></div><div class="archive-copy"><h2 id="archive-title">A place for every day</h2><p id="archive-note">Recordings stay on this computer, organized into daily folders.</p><code id="recording-folder">No recording folder yet</code></div><button class="secondary-button" id="copy-path" disabled><svg class="icon"><use href="/static/icons.svg#copy"></use></svg>Copy folder path</button></section>
+      </div>
+      <footer class="page-footer"><span><svg class="icon"><use href="/static/icons.svg#shield-check"></use></svg>Your workspace stays on this computer.</span><span id="timezone-note">Times shown in UTC</span></footer>
+      <div class="sr-only" id="connection-announcement" aria-live="polite"></div>
+    </main>
+  </div>
+
+  <dialog id="stop-dialog" aria-labelledby="stop-dialog-title"><div class="dialog-icon danger-icon"><svg class="icon"><use href="/static/icons.svg#square"></use></svg></div><h2 id="stop-dialog-title">Stop recording?</h2><p id="stop-dialog-description">The current clip will be finalized and your saved clips will be kept. Recording will stay stopped until you start a new recording.</p><div class="dialog-actions"><button class="secondary-button" id="cancel-stop">Keep recording</button><button class="danger-button" id="confirm-stop">Stop recording</button></div></dialog>
+  <dialog id="details-dialog" aria-labelledby="details-title"><button class="dialog-close icon-button" id="close-details" aria-label="Close details"><svg class="icon"><use href="/static/icons.svg#x"></use></svg></button><div class="dialog-icon"><svg class="icon"><use href="/static/icons.svg#sliders-horizontal"></use></svg></div><h2 id="details-title">Session details</h2><p>The essentials for your current camera connection.</p><dl class="session-details"><div><dt>Camera</dt><dd id="details-camera">—</dd></div><div><dt>Video format</dt><dd id="details-codec">—</dd></div><div><dt>Preview</dt><dd id="details-preview">—</dd></div><div><dt>Recording time zone</dt><dd id="details-timezone">—</dd></div><div><dt>Reconnections</dt><dd id="details-reconnects">—</dd></div></dl><p class="dialog-footnote">The browser preview is silent. Audio is saved in the clips when enabled.</p></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden><svg class="icon"><use href="/static/icons.svg#check"></use></svg><span></span></div>
+</body>
+</html>

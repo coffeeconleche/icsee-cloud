@@ -10,6 +10,8 @@ addition to its current streaming and recording features.
   authorized camera selection.
 - Remote HEVC live video through a headless Android helper using the vendor SDK.
 - Main/substream quality selection in a browser viewer at `127.0.0.1:8766`.
+- A responsive local dashboard with light/dark themes, fullscreen, snapshots,
+  recording progress, connection status, and confirmation before stopping.
 - Original video with optional audio in approximately five-minute MKV clips.
 - Continuous or fixed-duration recording, automatic reconnection, durable manual
   stop, and Windows Task Scheduler recovery after a process failure or user login.
@@ -86,6 +88,12 @@ Build the helper from your own locally verified APK copies, or point
 The viewer's **Stop recording** button also stops the job. Closing the browser or
 this terminal does not stop a scheduled recording. Keep the PC powered on;
 recovery after a reboot requires signing into Windows.
+
+Open `http://127.0.0.1:8766/` for the dashboard. The interface and icons are bundled
+locally: no frontend build, Node.js runtime, remote fonts, or CDN is required.
+Quality is locked during a recording. **Copy folder path** copies the current
+day's recording location; the camera button saves a snapshot to browser downloads.
+See [the frontend guide](docs/frontend.md) for controls and development notes.
 
 Clips are kept in `recordings/<camera-name>/YYYY-MM-DD/`, named by capture start
 time. The browser's MJPEG preview is silent; saved clips include audio when
