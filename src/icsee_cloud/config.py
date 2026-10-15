@@ -41,7 +41,7 @@ class Settings:
     password: str = field(repr=False)
     camera_name: str = ''
     device_id: str = field(default='', repr=False)
-    region: str = 'sa'
+    region: str = 'auto'
     identity_file: Path = ROOT / 'client.local.json'
     helper_apk: Path = ROOT / 'runtime/android-helper/local-icsee-probe.apk'
     adb: Path = Path('adb')
@@ -69,7 +69,7 @@ class Settings:
         return cls(values.get('ICSEE_USERNAME') or values.get('user', ''),
                    values.get('ICSEE_PASSWORD') or values.get('password', ''),
                    values.get('ICSEE_DEVICE_NAME', ''), device_id,
-                   values.get('ICSEE_REGION', 'sa'),
+                   values.get('ICSEE_REGION', '').strip() or 'auto',
                    configured_path(values, 'ICSEE_CLIENT_IDENTITY_FILE', identity),
                    configured_path(values, 'ICSEE_HELPER_APK', helper),
                    configured_path(values, 'ICSEE_ADB', sdk / f'platform-tools/adb{executable}'),

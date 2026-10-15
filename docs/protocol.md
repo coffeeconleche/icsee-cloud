@@ -30,10 +30,17 @@ JSON/encrypted-hex decoding as account calls.
 
 The returned `data.regionUrl` contains country-specific `countryNo`, `amsUrl`,
 and `capsUrl` fields. `data.defaultCountry` can point to a different country,
-reflecting the requesting computer's location. Select the explicit country
-entry; do not substitute the default when the account belongs elsewhere.
-The client implements this lookup when `ICSEE_COUNTRY` is set, without an
-automatic sweep of other regions. Native SDK fallback behavior is not fully traced.
+reflecting the requesting computer's location. The inspected app reads
+`NewRegisterCountryItem` when available and otherwise uses `defaultCountry`.
+With no saved country its lookup request uses `isoCode=CN`; this does not mean
+that the account is in China. Server selection still uses the returned default.
+
+The client follows that default when no account country is known. After a
+successful login it remembers the country per account in an ignored local cache.
+Cached or explicit countries select their exact `regionUrl` entry, even when the
+request originates elsewhere; a missing entry never substitutes `defaultCountry`.
+This does not establish email-based global account lookup or automatic login
+attempts across regions. Native SDK fallback behavior is not fully traced.
 
 ## Camera transport
 

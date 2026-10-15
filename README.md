@@ -6,7 +6,8 @@ addition to its current streaming and recording features.
 
 ## What works
 
-- Country-based server discovery, account sign-in, and authorized camera selection.
+- Automatic or optional country-based server discovery, account sign-in, and
+  authorized camera selection.
 - Remote HEVC live video through a headless Android helper using the vendor SDK.
 - Main/substream quality selection in a browser viewer at `127.0.0.1:8766`.
 - Original video with optional audio in approximately five-minute MKV clips.
@@ -47,16 +48,19 @@ python -m venv .venv
 Copy-Item .env.example .env
 ```
 
-Edit `.env` locally. Choose your camera by name or serial and set `ICSEE_COUNTRY`
-to the two-letter country selected for your iCSee account. The client discovers
-the matching regional servers before login, regardless of your current location.
+Edit `.env` locally with your credentials and camera name or serial. Country
+selection is automatic: use the last successful country saved for this account,
+or the vendor's default on a fresh setup. Successful logins save only a country
+and hashed account/client identifier in the ignored `account.local.json`.
 Provide a client identity in the ignored `client.local.json`, following
 `examples/client.example.json`. The client identity is separate from the account
 email/password. No working identity or account secret is distributed here.
 
-Existing installations can keep `ICSEE_REGION=sa` or `global` with no country set.
-When a country is set it takes precedence; discovery failures do not trigger login
-attempts against other regions. See [setup](docs/setup.md) for details.
+If a fresh setup selects the wrong region for an account created elsewhere, set
+the optional `ICSEE_COUNTRY` override to its two-letter country. A successful login
+remembers it, so you can then leave the override empty again. Explicit legacy
+`ICSEE_REGION=sa` or `global` settings are also supported. The client does not
+sweep other regions on login failure. See [setup](docs/setup.md) for details.
 
 Build the helper from your own locally verified APK copies, or point
 `ICSEE_HELPER_APK` at your existing locally built helper. See

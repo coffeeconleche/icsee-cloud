@@ -6,7 +6,8 @@
    images can fail. Configure `ICSEE_AVD` when multiple AVDs exist.
 2. Create `.venv` and install this project with `pip install -e ".[dev]"`.
 3. Copy `.env.example` to `.env` and fill account credentials, camera selector,
-   account country, emulator name, and optional executable paths. `.env` is ignored.
+   emulator name, and optional executable paths. Country selection is automatic
+   unless overridden. `.env` is ignored.
 4. Copy `examples/client.example.json` to `client.local.json` and fill your local
    client identity. The public release does not automate client identity extraction.
    Use your authorized developer identity or investigate your own verified app
@@ -17,23 +18,34 @@
 
 ## Account country and server discovery
 
-Set `ICSEE_COUNTRY` to the two-letter country selected for your iCSee account,
-such as `US` or `GB`. This is the account setting, independent of the camera's
-location, your PC's location, recording timezone, and interface language.
+Normally leave `ICSEE_COUNTRY` empty and omit `ICSEE_REGION`. Like the app, the
+client reuses a country saved from a successful login, or asks the vendor for its
+automatic default on a fresh setup. It resolves the account API (`amsUrl`) and
+native-helper service (`capsUrl`) before sending account credentials.
 
-Before login the client calls the vendor's country discovery service, then uses
-the matching country's `amsUrl` for the account API and `capsUrl` for the native
-helper. It does not use the service's location-based `defaultCountry`, or try
-credentials against every region. A missing or ambiguous mapping stops login;
-check the country configured in iCSee if discovery or authentication fails.
-Resolved addresses must be HTTPS origins under `jftechws.com`. Cloud HTTP
-redirects are rejected rather than changing the selected login destination.
+The ignored `account.local.json` stores a successful country under a hashed
+account/client identifier. It contains no email, password, account token or camera
+data. Accounts have separate entries; one account cannot inherit another's saved
+country. A saved country takes precedence over the default when you travel.
 
-For existing installations, leaving `ICSEE_COUNTRY` empty or unset preserves the
-fixed `ICSEE_REGION` option (`sa` or `global`; legacy default `sa`). A nonempty
-country takes precedence, with no fallback to that fixed region on failure.
-Discovery is reused within each cloud client; reconnections create a new client
-and refresh it. A working local client identity is required for discovery too.
+The automatic default can describe your current location rather than an account
+created elsewhere. On a fresh setup, use `ICSEE_COUNTRY=GB` (for example) to
+override it with your account's two-letter country. After a successful login the
+country is remembered, so the override can be cleared. This is independent of
+the camera's location, recording timezone, and interface language. We have not
+established an API that identifies every account's region from its email alone.
+
+Explicit `ICSEE_REGION=sa` or `global` settings retain the fixed legacy backend
+when country is empty. A nonempty country overrides it; `ICSEE_COUNTRY=auto` forces
+automatic mode even with a legacy region present. With neither override
+configured, automatic discovery is used.
+
+The client does not sweep other regions on failure. Missing/ambiguous mappings
+stop login. Discovered addresses must be HTTPS origins under `jftechws.com`, and
+HTTP redirects are rejected. Discovery is reused per account within each cloud
+client; reconnections create a new client and refresh it. A working local client
+identity is required for discovery too. An unavailable cache does not prevent
+login, but its country cannot be remembered until the cache is writable again.
 
 ## Build the Android helper
 

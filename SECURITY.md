@@ -1,7 +1,8 @@
 # Security and private data
 
 Use this project only with accounts and cameras you are authorized to access.
-Keep `.env`, `client.local.json`, real camera serials, recordings, logs, captures,
+Keep `.env`, `client.local.json`, `account.local.json`, real camera serials,
+recordings, logs, captures,
 recovered APK material and private research outside Git tracking. The ignore rules
 cover these locations; ignoring an already tracked file does not remove it from
 history. Run `python tools/check_public_files.py` before staging source changes.
@@ -15,6 +16,10 @@ The browser server and SDK forward are loopback only. Do not expose the viewer o
 ADB directly to the internet; this local viewer has no remote-user authentication.
 Cloud requests use certificate-verified TLS. SDK transport uses the vendor's own
 connection implementation and its security properties are not fully audited here.
+
+The account routing cache contains only successful country codes indexed by a
+hash of the client UUID and account name. It stores no account credentials,
+tokens or camera identifiers; completed and temporary cache files are ignored.
 
 If reporting a bug, provide a sanitized error type, package version, and symptom.
 Do not attach account responses, SDK requests, completed identity files, camera

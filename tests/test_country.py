@@ -25,7 +25,7 @@ def discovery_result(**entry_overrides):
         'regionUrl': [{'countryNo': 'GB', 'amsUrl': HOST, 'capsUrl': CAPS, **entry_overrides}]}}
 
 
-def install_transport(monkeypatch, result, encrypted=False):
+def install_transport(monkeypatch, result, encrypted=False, login_result=None):
     requests = []
 
     def respond(opener, request, timeout):
@@ -33,7 +33,7 @@ def install_transport(monkeypatch, result, encrypted=False):
         if '/phoneAndUrlByCountry/' in request.full_url:
             body = result
         elif '/loginExist/' in request.full_url:
-            body = {'code': 2000, 'data': {'accessToken': 'fixture-token'}}
+            body = login_result if login_result is not None else {'code': 2000, 'data': {'accessToken': 'fixture-token'}}
         elif '/msdlistCode/' in request.full_url:
             body = {'code': 2000, 'data': {'mine': [], 'share': []}}
         else:
@@ -171,15 +171,16 @@ def test_settings_loads_country_independently_of_legacy_region(monkeypatch, tmp_
     assert settings.country == 'GB' and settings.region == 'global'
 
 
-def test_unset_country_preserves_existing_settings(monkeypatch, tmp_path):
+def test_unset_routing_enables_automatic_default(monkeypatch, tmp_path):
     monkeypatch.setattr(config, 'ROOT', tmp_path)
     monkeypatch.setattr(config, 'local_values', lambda: {})
     settings = config.Settings.load()
-    assert settings.country == '' and settings.region == 'sa'
+    assert settings.country == '' and settings.region == 'auto'
 
 
 def test_viewer_passes_discovered_servers_to_native_helper(monkeypatch, tmp_path):
     from icsee_cloud import viewer
+    monkeypatch.setattr(viewer, 'ROOT', tmp_path)
     path = tmp_path / 'client.local.json'
     path.write_text(json.dumps({'uuid': IDENTITY.uuid, 'app_key': IDENTITY.app_key,
                                'app_secret': IDENTITY.app_secret, 'moved_card': IDENTITY.moved_card}))
@@ -192,3 +193,112 @@ def test_viewer_passes_discovered_servers_to_native_helper(monkeypatch, tmp_path
     result = viewer.LiveView(8766).account_config()
     assert result['miServer'] == HOST and result['capsServer'] == CAPS
     assert len(requests) == 2
+
+
+def automatic_result():
+    result = discovery_result()
+    result['data']['defaultCountry'] = {'countryNo': 'GB', 'amsUrl': HOST, 'capsUrl': CAPS}
+    # CN is a discovery request default, not necessarily the selected account region.
+    result['data']['regionUrl'].append({'countryNo': 'CN', 'amsUrl': 'https://ams.jftechws.com',
+                                       'capsUrl': 'https://caps.jftechws.com'})
+    return result
+
+
+@pytest.mark.parametrize('encrypted', [False, True])
+def test_automatic_default_and_saved_country_work_without_an_explicit_country(monkeypatch, tmp_path, encrypted):
+    cache = tmp_path / 'account.local.json'
+    requests = install_transport(monkeypatch, automatic_result(), encrypted)
+    first = CloudClient(IDENTITY, cache_path=cache)
+    first.login('fixture@example.invalid', 'fixture-password')
+    assert first.host == HOST and first.resolved_country == 'GB'
+    assert parse_qs(requests[0].data.decode(), keep_blank_values=True)['isoCode'] == ['CN']
+    saved = cache.read_text()
+    assert 'fixture@example.invalid' not in saved and 'fixture-password' not in saved and 'fixture-token' not in saved
+
+    moved = automatic_result()
+    moved['data']['defaultCountry'] = {'countryNo': 'CN', 'amsUrl': 'https://ams.jftechws.com',
+                                       'capsUrl': 'https://caps.jftechws.com'}
+    requests = install_transport(monkeypatch, moved, encrypted)
+    second = CloudClient(IDENTITY, cache_path=cache)
+    second.login('fixture@example.invalid', 'fixture-password')
+    assert second.host == HOST and second.resolved_country == 'GB'
+    assert parse_qs(requests[0].data.decode(), keep_blank_values=True)['isoCode'] == ['GB']
+    assert len(requests) == 2
+
+
+def test_explicit_country_can_correct_a_saved_default(monkeypatch, tmp_path):
+    cache = tmp_path / 'account.local.json'
+    install_transport(monkeypatch, automatic_result())
+    CloudClient(IDENTITY, cache_path=cache).login('fixture@example.invalid', 'fixture-password')
+    result = automatic_result()
+    requests = install_transport(monkeypatch, result)
+    explicit = CloudClient(IDENTITY, country='CN', cache_path=cache)
+    explicit.login('fixture@example.invalid', 'fixture-password')
+    assert explicit.resolved_country == 'CN' and explicit.host == 'https://ams.jftechws.com'
+    assert parse_qs(requests[0].data.decode(), keep_blank_values=True)['isoCode'] == ['CN']
+    automatic = CloudClient(IDENTITY, cache_path=cache)
+    automatic.login('fixture@example.invalid', 'fixture-password')
+    assert automatic.resolved_country == 'CN'
+
+
+def test_failed_login_does_not_save_an_unverified_country(monkeypatch, tmp_path):
+    cache = tmp_path / 'account.local.json'
+    requests = install_transport(monkeypatch, automatic_result(), login_result={'code': 4025, 'data': ''})
+    with pytest.raises(CloudError, match='ICSEE_COUNTRY'):
+        CloudClient(IDENTITY, cache_path=cache).login('fixture@example.invalid', 'fixture-password')
+    assert len(requests) == 2 and not cache.exists()
+
+
+@pytest.mark.parametrize('contents', ['{broken', '[]', '{"version":1,"accounts":[]}'])
+def test_unreadable_cache_uses_automatic_discovery(monkeypatch, tmp_path, contents):
+    cache = tmp_path / 'account.local.json'
+    cache.write_text(contents)
+    requests = install_transport(monkeypatch, automatic_result())
+    cloud = CloudClient(IDENTITY, cache_path=cache)
+    cloud.login('fixture@example.invalid', 'fixture-password')
+    assert cloud.resolved_country == 'GB'
+    assert parse_qs(requests[0].data.decode(), keep_blank_values=True)['isoCode'] == ['CN']
+
+
+def test_readonly_cache_does_not_fail_a_successful_login(monkeypatch, tmp_path):
+    from icsee_cloud import cloud as module
+    install_transport(monkeypatch, automatic_result())
+
+    def fail(*args):
+        raise PermissionError('fixture read-only cache')
+
+    monkeypatch.setattr(module.os, 'replace', fail)
+    cloud = CloudClient(IDENTITY, cache_path=tmp_path / 'account.local.json')
+    cloud.login('fixture@example.invalid', 'fixture-password')
+    assert cloud.token == 'fixture-token'
+    assert not list(tmp_path.glob('*.local.json'))
+
+
+def test_switching_accounts_does_not_reuse_another_accounts_country(monkeypatch, tmp_path):
+    result = automatic_result()
+    requests = install_transport(monkeypatch, result)
+    cloud = CloudClient(IDENTITY, cache_path=tmp_path / 'account.local.json')
+    cloud.login('first-fixture@example.invalid', 'fixture-password')
+    assert cloud.resolved_country == 'GB'
+    result['data']['defaultCountry'] = {'countryNo': 'CN', 'amsUrl': 'https://ams.jftechws.com',
+                                       'capsUrl': 'https://caps.jftechws.com'}
+    cloud.login('second-fixture@example.invalid', 'fixture-password')
+    assert cloud.resolved_country == 'CN'
+    assert len(requests) == 4
+    assert len(json.loads((tmp_path / 'account.local.json').read_text())['accounts']) == 2
+
+
+def test_explicit_auto_setting_overrides_a_fixed_legacy_region(monkeypatch):
+    install_transport(monkeypatch, automatic_result())
+    cloud = CloudClient(IDENTITY, region='sa', country='auto')
+    cloud.login('fixture@example.invalid', 'fixture-password')
+    assert cloud.resolved_country == 'GB' and cloud.host == HOST
+
+
+def test_missing_automatic_default_stops_without_login(monkeypatch):
+    result = discovery_result()
+    del result['data']['defaultCountry']
+    requests = install_transport(monkeypatch, result)
+    with pytest.raises(CloudError, match='no automatic default'):
+        CloudClient(IDENTITY).login('fixture@example.invalid', 'fixture-password')
+    assert len(requests) == 1
