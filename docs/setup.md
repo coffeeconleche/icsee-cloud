@@ -6,14 +6,36 @@
    images can fail. Configure `ICSEE_AVD` when multiple AVDs exist.
 2. Create `.venv` and install this project with `pip install -e ".[dev]"`.
 3. Copy `.env.example` to `.env` and fill account credentials, camera selector,
-   region, emulator name, and optional executable paths. `.env` is ignored.
+   account country, emulator name, and optional executable paths. `.env` is ignored.
 4. Copy `examples/client.example.json` to `client.local.json` and fill your local
-   client identity. The public release does not automate client identity extraction
-   or region discovery. Use your authorized developer identity or investigate your
-   own verified app copy locally. Never post the completed file.
+   client identity. The public release does not automate client identity extraction.
+   Use your authorized developer identity or investigate your own verified app
+   copy locally. Never post the completed file.
 5. Supply locally verified `base.apk` and `split_config.arm64_v8a.apk` from the
    same iCSee version. APK authentication, version matching, and provenance must be
    established before the build. The build does not download or redistribute SDKs.
+
+## Account country and server discovery
+
+Set `ICSEE_COUNTRY` to the two-letter country selected for your iCSee account,
+such as `US` or `GB`. This is the account setting, independent of the camera's
+location, your PC's location, recording timezone, and interface language.
+
+Before login the client calls the vendor's country discovery service, then uses
+the matching country's `amsUrl` for the account API and `capsUrl` for the native
+helper. It does not use the service's location-based `defaultCountry`, or try
+credentials against every region. A missing or ambiguous mapping stops login;
+check the country configured in iCSee if discovery or authentication fails.
+Resolved addresses must be HTTPS origins under `jftechws.com`. Cloud HTTP
+redirects are rejected rather than changing the selected login destination.
+
+For existing installations, leaving `ICSEE_COUNTRY` empty or unset preserves the
+fixed `ICSEE_REGION` option (`sa` or `global`; legacy default `sa`). A nonempty
+country takes precedence, with no fallback to that fixed region on failure.
+Discovery is reused within each cloud client; reconnections create a new client
+and refresh it. A working local client identity is required for discovery too.
+
+## Build the Android helper
 
 ```powershell
 .\.venv\Scripts\python.exe tools/build_android_helper.py `

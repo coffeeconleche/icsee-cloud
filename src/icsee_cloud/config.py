@@ -48,6 +48,7 @@ class Settings:
     ffmpeg: Path = Path('ffmpeg')
     emulator: Path = Path('emulator')
     avd: str = ''
+    country: str = ''
 
     @classmethod
     def load(cls):
@@ -74,4 +75,5 @@ class Settings:
                    configured_path(values, 'ICSEE_ADB', sdk / f'platform-tools/adb{executable}'),
                    configured_path(values, 'ICSEE_FFMPEG', ffmpeg),
                    configured_path(values, 'ICSEE_EMULATOR', sdk / f'emulator/emulator{executable}'),
-                   values.get('ICSEE_AVD', ''))
+                   values.get('ICSEE_AVD', ''),
+                   country=values.get('ICSEE_COUNTRY', '').strip().upper())

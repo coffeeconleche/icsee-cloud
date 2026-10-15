@@ -21,6 +21,20 @@ The tested account belongs to the South America MI/CAPS region. Valid credential
 sent to another region can look like a nonexistent account. A client identity is
 not the account login and must be supplied privately.
 
+The app's country lookup uses `/phoneAndUrlByCountry/va1/TIMESTAMP/SIGNATURE.rs`
+on `https://ams.jftechws.com`, with the same client identity/signature derivation
+and a millisecond timestamp without the account API's counter prefix. The body
+is ordinary form data: `isoCode=<two-letter country>&urlVersion=`. It does not
+include account credentials or an account token. Responses use the same
+JSON/encrypted-hex decoding as account calls.
+
+The returned `data.regionUrl` contains country-specific `countryNo`, `amsUrl`,
+and `capsUrl` fields. `data.defaultCountry` can point to a different country,
+reflecting the requesting computer's location. Select the explicit country
+entry; do not substitute the default when the account belongs elsewhere.
+The client implements this lookup when `ICSEE_COUNTRY` is set, without an
+automatic sweep of other regions. Native SDK fallback behavior is not fully traced.
+
 ## Camera transport
 
 The tested camera uses RPS and account-derived device authorization. Its stream

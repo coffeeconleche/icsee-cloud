@@ -3,8 +3,9 @@
 The public code separates three layers:
 
 1. `protocol.py` reproduces native request signing, key derivation, login encoding,
-   and block padding. `cloud.py` performs TLS requests, sign-in, device listing,
-   and selection without saving response bodies or printing account tokens.
+   and block padding. `cloud.py` performs country-based server discovery, TLS
+   requests, sign-in, device listing, and selection without saving response bodies
+   or printing account tokens.
 2. `android/helper` calls the vendor SDK through reflection, obtaining the device
    authorization associated with the account and establishing the native remote
    camera connection. `viewer.py` starts the helper, creates a loopback ADB forward,

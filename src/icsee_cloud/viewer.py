@@ -119,7 +119,7 @@ class LiveView:
 
     def account_config(self):
         identity = ClientIdentity.load(SETTINGS.identity_file)
-        cloud = CloudClient(identity, SETTINGS.region)
+        cloud = CloudClient(identity, SETTINGS.region, country=SETTINGS.country)
         cloud.login(SETTINGS.username, SETTINGS.password)
         camera = cloud.select_device(SETTINGS.camera_name, SETTINGS.device_id)
         self.camera_name = unquote(camera.get('nickname', '')) or 'Camera'

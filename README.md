@@ -6,7 +6,7 @@ addition to its current streaming and recording features.
 
 ## What works
 
-- Account sign-in and authorized camera selection through the regional cloud API.
+- Country-based server discovery, account sign-in, and authorized camera selection.
 - Remote HEVC live video through a headless Android helper using the vendor SDK.
 - Main/substream quality selection in a browser viewer at `127.0.0.1:8766`.
 - Original video with optional audio in approximately five-minute MKV clips.
@@ -47,10 +47,16 @@ python -m venv .venv
 Copy-Item .env.example .env
 ```
 
-Edit `.env` locally. Choose your camera by name or serial and its account region.
+Edit `.env` locally. Choose your camera by name or serial and set `ICSEE_COUNTRY`
+to the two-letter country selected for your iCSee account. The client discovers
+the matching regional servers before login, regardless of your current location.
 Provide a client identity in the ignored `client.local.json`, following
 `examples/client.example.json`. The client identity is separate from the account
 email/password. No working identity or account secret is distributed here.
+
+Existing installations can keep `ICSEE_REGION=sa` or `global` with no country set.
+When a country is set it takes precedence; discovery failures do not trigger login
+attempts against other regions. See [setup](docs/setup.md) for details.
 
 Build the helper from your own locally verified APK copies, or point
 `ICSEE_HELPER_APK` at your existing locally built helper. See
