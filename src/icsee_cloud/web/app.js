@@ -49,7 +49,8 @@ function render() {
   const s = state.snapshot || {};
   const r = s.recording;
   const usable = state.available && !state.stopped;
-  const live = usable && s.status === 'Live' && typeof s.last_frame_age_seconds === 'number' && s.last_frame_age_seconds < 5;
+  const mismatch = usable && s.resolution_ok === false;
+  const live = usable && !mismatch && s.status === 'Live' && typeof s.last_frame_age_seconds === 'number' && s.last_frame_age_seconds < 5;
   const saving = live && r?.active && r.disk_ok !== false;
   const phase = state.stopped ? 'Stopped' : !state.available ? 'Unavailable' : s.switching ? 'Switching quality' : live ? 'Connected' : s.status || 'Connecting';
   const shortPhase = state.stopped ? 'Stopped' : !state.available ? 'Connecting' : live ? 'Online' : 'Connecting';
@@ -61,13 +62,16 @@ function render() {
   text('summary-connection', shortPhase);
   pill('summary-state-pill', live ? 'LIVE' : state.stopped ? 'ENDED' : 'WAITING', live ? 'good' : '');
   text('summary-connection-note', state.stopped ? 'Your connection has ended' : live ? 'Your camera is connected' : phase);
-  const quality = s.quality === 'high' ? 'High' : s.quality === 'low' ? 'Low' : '—';
-  const resolution = s.resolution ? String(s.resolution).replace(/x/i, ' × ') : '—';
-  text('summary-quality', quality);
-  text('summary-resolution', resolution);
-  text('summary-quality-note', r ? 'Original video, saved without re-encoding' : 'Original camera stream');
+  const requested = s.requested_quality || s.quality;
+  const quality = requested === 'high' ? 'High' : requested === 'low' ? 'Low' : '—';
+  const resolution = usable && s.resolution ? String(s.resolution).replace(/x/i, ' × ') : '—';
+  const target = s.minimum_resolution ? String(s.minimum_resolution).replace(/x/i, ' × ') : null;
+  text('summary-quality', resolution);
+  text('summary-resolution', quality === '—' ? 'Awaiting video' : `Requested: ${quality} · ${requested === 'high' ? 'Main' : 'Sub'} stream`);
+  text('summary-quality-note', mismatch ? `Below ${target || 'target resolution'} · retrying` : target ? `Minimum ${target} · ${s.resolution_ok === true ? 'receiving target resolution' : 'waiting for video'}` : 'Actual received video dimensions');
+  $('summary-quality-note').classList.toggle('quality-warning', mismatch);
   text('camera-subtitle', r ? 'Camera stream · recording session' : 'Camera stream · live view');
-  text('video-quality', quality === '—' ? 'CONNECTING' : `${quality.toUpperCase()} · ${s.resolution || s.codec || 'Video'}`);
+  text('video-quality', resolution === '—' ? 'AWAITING VIDEO' : `${resolution} · ${s.codec || 'Video'}${mismatch ? ' · BELOW TARGET' : ''}`);
   $('live-indicator').className = `live-indicator ${live ? 'online' : ''}`;
   $('live-indicator').querySelector('span').textContent = live ? 'Live stream' : shortPhase;
   $('video-live-badge').hidden = !live;
@@ -80,9 +84,10 @@ function render() {
   for (const q of ['low', 'high']) {
     const button = $(`quality-${q}`);
     button.disabled = !usable || !!r || !!s.switching || state.qualityPending;
-    button.setAttribute('aria-pressed', s.quality === q ? 'true' : 'false');
+    button.setAttribute('aria-pressed', requested === q ? 'true' : 'false');
   }
-  text('quality-hint', r ? 'Quality is fixed while this recording runs.' : s.switching ? 'The new stream is connecting…' : 'Choose the stream that works for you.');
+  text('quality-hint', mismatch ? 'Received video is below target. Reconnecting automatically.' : r ? 'Stream selection is fixed. Received resolution is shown above.' : s.switching ? 'The new stream is connecting…' : 'Request a stream. Its received resolution is shown above.');
+  $('quality-hint').classList.toggle('quality-warning', mismatch);
 
   $('stop-button').disabled = !usable;
   $('stop-button').querySelector('span').textContent = state.stopped ? 'Stopped' : r ? 'Stop recording' : 'Stop live view';
@@ -94,9 +99,9 @@ function render() {
     text('saved-unit', size.unit);
     text('saved-note', `${number(r.clip_count)} clips · across all recording days`);
     const active = usable && r.active;
-    pill('recording-state', state.stopped ? 'STOP REQUESTED' : !state.available ? 'UNKNOWN' : !r.active ? 'INACTIVE' : r.disk_ok === false ? 'PAUSED' : saving ? 'RECORDING' : 'RECONNECTING', saving ? 'good' : active ? 'warning' : '');
+    pill('recording-state', state.stopped ? 'STOP REQUESTED' : !state.available ? 'UNKNOWN' : !r.active ? 'INACTIVE' : r.disk_ok === false ? 'PAUSED' : mismatch ? 'RESTORING QUALITY' : saving ? 'RECORDING' : 'RECONNECTING', saving ? 'good' : active ? 'warning' : '');
     text('recording-mode', state.stopped ? 'Ending this session' : r.indefinite ? 'Continuous capture' : 'Scheduled capture');
-    text('recording-description', state.stopped ? 'The last clip will be finalized.' : r.disk_ok === false ? 'Paused until more disk space is available.' : r.indefinite ? 'Saving until you choose to stop.' : r.deadline_utc ? `Until ${formatDate(new Date(r.deadline_utc), {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'})}` : 'A fixed-duration recording.');
+    text('recording-description', state.stopped ? 'The last clip will be finalized.' : r.disk_ok === false ? 'Paused until more disk space is available.' : mismatch ? 'Waiting for the requested resolution before saving video.' : r.indefinite ? 'Saving until you choose to stop.' : r.deadline_utc ? `Until ${formatDate(new Date(r.deadline_utc), {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'})}` : 'A fixed-duration recording.');
     const seconds = Number(r.segment_seconds) || 300;
     text('clip-length', seconds % 60 === 0 ? `${seconds / 60} minutes` : `${seconds} seconds`);
     text('audio-status', r.audio_enabled ? `Included · ${r.audio_codec || 'Audio'}` : 'Video only');

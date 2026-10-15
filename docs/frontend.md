@@ -5,6 +5,11 @@ stream quality, saved footage totals, recording progress, and connection health.
 It supports phones and desktops, light/dark themes, fullscreen, and snapshots.
 There are no remote scripts, fonts, analytics, or CDN dependencies.
 
+**Received resolution** reports the dimensions of the incoming video, with the
+requested High/Main or Low/Sub stream shown separately. A requested stream name
+does not prove its delivered resolution. Recording jobs with a resolution minimum
+show **Restoring quality** if smaller video arrives, while the worker reconnects.
+
 ## Controls
 
 - **Low / High** selects a stream in live-view sessions. A recording keeps its

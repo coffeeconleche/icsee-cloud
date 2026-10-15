@@ -14,6 +14,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from .viewer import FFMPEG, ROOT, SETTINGS, LiveView, serve
+from .media import parse_resolution
 
 from .config import local_values
 RECORDING_TIMEZONE = local_values().get('ICSEE_RECORDING_TIMEZONE', 'UTC')
@@ -51,6 +52,8 @@ class Recorder(LiveView):
         self.reconnects = 0
         self.disk_ok = True
         self.audio_enabled = bool(job.get('audio', False))
+        if job.get('minimum_resolution'):
+            self.minimum_resolution = parse_resolution(job['minimum_resolution'])
 
     def deadline_reached(self):
         return self.deadline is not None and time.time() >= self.deadline
@@ -67,7 +70,8 @@ class Recorder(LiveView):
         if not self.audio_enabled:
             return super().feed_source(session, process)
         from .media import AudioVideoMux, read_frame
-        mux = AudioVideoMux(process.stdin)
+        mux = AudioVideoMux(process.stdin,
+                            on_video_format=lambda width, height: self.observe_video_format(session, width, height))
         session.audio_started = time.time()
         try:
             while not session.stop.is_set() and not self.stop.is_set():
@@ -200,7 +204,7 @@ class Recorder(LiveView):
                 with self.condition:
                     current = self.session
                     healthy = (current is not None and current.media_process is not None
-                               and current.media_process.poll() is None and self.last_frame
+                               and not current.failure and current.media_process.poll() is None and self.last_frame
                                and time.time() - self.last_frame < 30)
                     if healthy and self.audio_enabled:
                         healthy = bool(current.last_audio and time.time()-current.last_audio < 30)
@@ -217,8 +221,9 @@ class Recorder(LiveView):
                     with self.lifecycle:
                         with self.condition:
                             current = self.session; self.session = None
-                            self.jpeg = None; self.last_frame = 0; self.resolution = None
-                            self.reason = 'Reconnecting' if self.disk_ok else 'Low disk space: recording paused'
+                            self.jpeg = None; self.last_frame = 0
+                            self.reason = ('Restoring requested resolution' if self.resolution_ok is False
+                                           else 'Reconnecting') if self.disk_ok else 'Low disk space: recording paused'
                         if current: current.close()
                     if self.stop.is_set() or self.deadline_reached(): break
                     try:
@@ -228,6 +233,15 @@ class Recorder(LiveView):
                         self.config = self.account_config()
                         if self.audio_enabled: self.config['includeAudio'] = True
                         self.activate_quality(self.recording_quality)
+                        # Keep the first successful main-stream dimensions as a
+                        # floor across reconnects and worker restarts. An explicit
+                        # minimum is preferable when the camera's size is known.
+                        if self.recording_quality == 'high' and not self.minimum_resolution:
+                            with self.condition:
+                                self.minimum_resolution = parse_resolution(self.resolution)
+                                self.resolution_ok = True
+                                self.job['minimum_resolution'] = self.resolution
+                            write_json(self.job_path, self.job)
                         failures = 0
                         self.reconnects += 1
                         self.event('recording_connected', gap_started_utc=outage_started,
@@ -235,7 +249,8 @@ class Recorder(LiveView):
                         outage_started = None
                     except Exception as error:
                         failures += 1
-                        self.reason = 'Reconnecting' if self.disk_ok else 'Low disk space: recording paused'
+                        self.reason = ('Restoring requested resolution' if self.resolution_ok is False
+                                       else 'Reconnecting') if self.disk_ok else 'Low disk space: recording paused'
                         delay = min(60, 5 * 2**min(failures - 1, 4))
                         self.event('retry', error_type=type(error).__name__, retry_seconds=delay)
                         self.checkpoint()
@@ -262,6 +277,8 @@ def main():
     parser.add_argument('--indefinite', action='store_true', help='Record until manually stopped')
     parser.add_argument('--segment-seconds', type=int, default=300)
     parser.add_argument('--quality', choices=['low', 'high'], default='high')
+    parser.add_argument('--minimum-resolution', type=parse_resolution,
+                        help='Reject smaller video and reconnect, for example 1920x1080')
     parser.add_argument('--audio', action='store_true', help='Include camera audio in the clips')
     parser.add_argument('--port', type=int, default=8766)
     parser.add_argument('--clips-dir', type=Path, default=ROOT/'recordings'/re.sub(r'[^a-z0-9_-]+', '-', (SETTINGS.camera_name or 'camera').lower()))
@@ -278,7 +295,9 @@ def main():
                              'deadline_utc': (None if args.indefinite else datetime.fromtimestamp(now + args.hours * 3600, timezone.utc).isoformat()),
                              'quality': args.quality, 'port': args.port, 'audio': args.audio,
                              'clip_root': str(args.clips_dir.resolve()), 'recording_timezone': RECORDING_TIMEZONE,
-                             'segment_seconds': args.segment_seconds, 'state': 'running'})
+                             'segment_seconds': args.segment_seconds, 'state': 'running',
+                             'minimum_resolution': ('%dx%d' % args.minimum_resolution
+                                                    if args.minimum_resolution else None)})
     if args.prepare:
         if not args.create: raise SystemExit('--prepare requires --create')
         return 0

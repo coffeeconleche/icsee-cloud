@@ -1,7 +1,13 @@
-param([ValidateSet('low','high')][string]$Quality='high', [switch]$VideoOnly, [ValidateRange(0,24)][double]$Hours=0)
+param([ValidateSet('low','high')][string]$Quality='high', [switch]$VideoOnly, [ValidateRange(0,24)][double]$Hours=0,
+      [ValidatePattern('^[1-9][0-9]{0,4}x[1-9][0-9]{0,4}$')][string]$MinimumResolution)
 . (Join-Path $PSScriptRoot 'common.ps1')
 Push-Location $cameraRoot
 try {
+    # Validate before stopping a working recording.
+    if ($MinimumResolution) {
+        & $cameraPython -c 'import sys; from icsee_cloud.media import parse_resolution; parse_resolution(sys.argv[1])' $MinimumResolution
+        if ($LASTEXITCODE -ne 0) { throw 'Invalid minimum resolution' }
+    }
     & $cameraPython -m icsee_cloud stop
     if ($LASTEXITCODE -ne 0) { throw 'Previous recorder could not be stopped' }
     $recordStamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddTHHmmssZ')
@@ -12,6 +18,7 @@ try {
     if ($Hours -gt 0) { $recordArguments += @('--hours', "$Hours") }
     else { $recordArguments += '--indefinite' }
     if (-not $VideoOnly) { $recordArguments += '--audio' }
+    if ($MinimumResolution) { $recordArguments += @('--minimum-resolution', $MinimumResolution) }
     & $cameraPython @recordArguments
     if ($LASTEXITCODE -ne 0) { throw 'Could not create the recording job' }
     $cameraPythonWindowless = Join-Path (Split-Path $cameraPython -Parent) 'pythonw.exe'

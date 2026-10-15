@@ -1,5 +1,6 @@
 """Local framing and timestamped remux of the verified camera's HEVC/G.711 stream."""
 import io
+import re
 import struct
 from fractions import Fraction
 import av
@@ -7,6 +8,27 @@ import av
 HEADER = struct.Struct('>4sB3xIQ')
 SAMPLE_RATE = 8000
 TIME_BASE = Fraction(1, SAMPLE_RATE)
+
+
+class ResolutionMismatch(ValueError):
+    """The received video is smaller than the recording's resolution floor."""
+
+
+def parse_resolution(value):
+    if not isinstance(value, str) or not re.fullmatch(r'[0-9]{1,5}x[0-9]{1,5}', value):
+        raise ValueError('Resolution must use WIDTHxHEIGHT, for example 1920x1080')
+    dimensions = tuple(int(part) for part in value.split('x'))
+    if not all(0 < part <= 65535 for part in dimensions):
+        raise ValueError('Resolution dimensions must be between 1 and 65535')
+    return dimensions
+
+
+def video_dimensions(payload):
+    with av.open(io.BytesIO(payload), format='hevc') as video:
+        context = video.streams.video[0].codec_context
+        if not context.width or not context.height:
+            raise ValueError('Video dimensions are not available yet')
+        return context.width, context.height
 
 
 def read_exact(source, size):
@@ -56,8 +78,9 @@ class AudioVideoMux:
     Using its sample clock avoids cumulative drift from the rounded video FPS
     field (12) versus the observed audio/video cadence (12.5 frames/second).
     """
-    def __init__(self, output):
+    def __init__(self, output, on_video_format=None):
         self.output = output
+        self.on_video_format = on_video_format
         self.container = None
         self.templates = []
         self.buffer = []
@@ -70,6 +93,10 @@ class AudioVideoMux:
     def ingest(self, kind, raw):
         if kind == 1:
             payload, keyframe = video_payload(raw)
+            # Check every keyframe before muxing, including resolution changes
+            # within an existing connection. Never resize or upscale the source.
+            if keyframe and self.on_video_format:
+                self.on_video_format(*video_dimensions(payload))
             if keyframe and self.first_video is None: self.first_video = payload
         else:
             payload = audio_payload(raw)

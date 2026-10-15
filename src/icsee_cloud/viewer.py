@@ -11,11 +11,13 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import quote_plus, unquote, urlsplit
+import av
 from PIL import Image
 
 from .config import ROOT, Settings
 from .cloud import CloudClient, ClientIdentity
 from .frontend import frontend_asset
+from .media import ResolutionMismatch, video_dimensions
 SETTINGS = Settings.load()
 PRIVATE = ROOT / '.research'
 PKG = 'local.icsee.probe'
@@ -44,6 +46,7 @@ class StreamSession:
         self.audio_frames = 0
         self.last_audio = 0
         self.created_at = time.monotonic()
+        self.failure = None
 
     def close(self):
         self.stop.set()
@@ -89,6 +92,8 @@ class LiveView:
         self.requested_quality = 'low'
         self.switching = False
         self.resolution = None
+        self.minimum_resolution = None
+        self.resolution_ok = None
         self.server = None
         self.started = time.time()
         self.reason = 'Connecting'
@@ -183,12 +188,40 @@ class LiveView:
         return None
 
     def feed_source(self, session, process):
+        pending = bytearray()
+        checked = False
         while not session.stop.is_set() and not self.stop.is_set():
             chunk = session.source.recv(65536)
             if not chunk: break
             with self.condition: session.video_bytes += len(chunk)
+            # Hold the first keyframe until we know its dimensions. This also
+            # protects video-only recordings before FFmpeg creates their clips.
+            if not checked:
+                pending.extend(chunk)
+                try: dimensions = video_dimensions(pending)
+                except (ValueError, av.FFmpegError) as error:
+                    if len(pending) > 8 * 1024 * 1024:
+                        raise ValueError('Video initialization buffer exceeded') from error
+                    continue
+                self.observe_video_format(session, *dimensions)
+                chunk = bytes(pending)
+                pending.clear()
+                checked = True
             process.stdin.write(chunk)
             process.stdin.flush()
+
+    def observe_video_format(self, session, width, height):
+        with self.condition:
+            if self.session is not session or session.stop.is_set() or session.failure: return
+            self.resolution = f'{width}x{height}'
+            target = self.minimum_resolution
+            self.resolution_ok = (width >= target[0] and height >= target[1]) if target else None
+            rejected = self.resolution_ok is False
+            if rejected:
+                session.failure = 'Restoring requested resolution'
+                self.reason = session.failure
+            self.condition.notify_all()
+        if rejected: raise ResolutionMismatch('Received video is below the minimum resolution')
 
     def video_pipeline(self, session):
         output = (RUN / 'ffmpeg.log').open('wb')
@@ -201,11 +234,14 @@ class LiveView:
         def feed():
             try:
                 self.feed_source(session, process)
-            except (OSError, ValueError): pass
+            except OSError: pass
             except Exception as error:
                 with self.condition:
                     if self.session is session:
-                        self.reason = 'Media input failed'
+                        session.failure = ('Restoring requested resolution'
+                                           if isinstance(error, ResolutionMismatch) else 'Media input failed')
+                        self.reason = session.failure
+                        self.condition.notify_all()
                 print(f'Media input failed: {type(error).__name__}', flush=True)
             finally:
                 try: process.stdin.close()
@@ -217,7 +253,7 @@ class LiveView:
             while True:
                 chunk = process.stdout.read1(65536)
                 if not chunk: break
-                if session.stop.is_set() or self.stop.is_set():
+                if session.stop.is_set() or self.stop.is_set() or session.failure:
                     buffer.clear()
                     continue
                 buffer.extend(chunk)
@@ -228,8 +264,12 @@ class LiveView:
                     jpeg = bytes(buffer[begin:end + 2]); del buffer[:end + 2]
                     with Image.open(io.BytesIO(jpeg)) as image:
                         width, height = image.size
+                    try: self.observe_video_format(session, width, height)
+                    except ResolutionMismatch:
+                        buffer.clear()
+                        break
                     with self.condition:
-                        if self.session is not session or session.stop.is_set(): break
+                        if self.session is not session or session.stop.is_set() or session.failure: break
                         self.jpeg = jpeg; self.frames += 1; self.last_frame = time.time()
                         self.resolution = f'{width}x{height}'
                         self.quality = session.quality
@@ -240,7 +280,7 @@ class LiveView:
                     break
             with self.condition:
                 if self.session is session and not session.stop.is_set() and not self.stop.is_set():
-                    self.reason = 'Video connection ended'; self.condition.notify_all()
+                    self.reason = session.failure or 'Video connection ended'; self.condition.notify_all()
         session.threads = [threading.Thread(target=feed, daemon=True), threading.Thread(target=frames, daemon=True)]
         for thread in session.threads: thread.start()
 
@@ -250,7 +290,7 @@ class LiveView:
                 self.switching = True
                 self.requested_quality = quality
                 self.reason = 'Switching quality' if self.quality else 'Connecting'
-                self.jpeg = None; self.resolution = None; self.last_frame = 0
+                self.jpeg = None; self.resolution = None; self.resolution_ok = None; self.last_frame = 0
                 old = self.session; self.session = None
                 self.condition.notify_all()
             if old: old.close()
@@ -263,15 +303,15 @@ class LiveView:
                 self.video_pipeline(session)
                 with self.condition:
                     ready = self.condition.wait_for(
-                        lambda: self.stop.is_set() or self.jpeg is not None or self.reason == 'Video connection ended',
+                        lambda: self.stop.is_set() or session.failure or self.jpeg is not None or self.reason == 'Video connection ended',
                         timeout=60)
                     if self.stop.is_set(): return
-                    if not ready or self.jpeg is None:
+                    if session.failure or not ready or self.jpeg is None:
                         raise RuntimeError('The selected camera stream did not produce video')
             except Exception:
                 with self.condition:
-                    self.session = None; self.quality = None; self.resolution = None
-                    self.reason = 'Quality switch failed. Try another quality.'
+                    self.session = None; self.quality = None
+                    self.reason = session.failure or 'Quality switch failed. Try another quality.'
                 session.close()
                 raise
             finally:
@@ -300,6 +340,8 @@ class LiveView:
                     'last_frame_age_seconds': age,
                     'seconds_running': round(time.time() - self.started), 'codec': 'HEVC',
                     'resolution': self.resolution, 'preview_fps': 8,
+                    'minimum_resolution': ('%dx%d' % self.minimum_resolution if self.minimum_resolution else None),
+                    'resolution_ok': self.resolution_ok,
                     'quality': self.quality, 'requested_quality': self.requested_quality,
                     'switching': self.switching,
                     'received_video_bytes': self.session.video_bytes if self.session else 0}

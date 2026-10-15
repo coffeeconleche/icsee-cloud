@@ -4,6 +4,25 @@
 sets a fixed wall-clock deadline, including outages. `-Quality low` selects the
 substream and `-VideoOnly` omits audio. Job metadata is stored in `recordings/jobs/`.
 
+To enforce a known camera resolution, pass `-MinimumResolution 1920x1080`
+(Python CLI: `--minimum-resolution 1920x1080`), using your camera's actual dimensions.
+Both width and height must meet the minimum; larger frames are accepted. The worker
+checks incoming video before saving a new connection. With audio enabled it also
+checks every video keyframe before muxing. Smaller video is rejected and the
+connection retried, so unavailable target resolution creates a logged recording gap
+rather than silently saving lower quality. Existing clips are kept.
+
+Without an explicit minimum, a High job remembers its first successfully received
+dimensions as a floor for subsequent connections, including worker restarts. That
+first connection alone cannot prove the camera supplied its highest resolution;
+use an explicit minimum when it is known. No camera-specific resolution is assumed.
+Video-only sessions additionally detect later size changes in decoded preview frames;
+some frames can have been saved before such a change is detected.
+
+The dashboard reports **received resolution**, separately from the requested
+High/Main or Low/Sub stream. A High request alone does not verify high-resolution
+delivery. If incoming video is below the minimum, it shows **Restoring quality**.
+
 Video files are stored under a camera-name directory, grouped by capture start
 day in UTC by default. `ICSEE_RECORDING_TIMEZONE` chooses an IANA zone;
 the PC's display timezone is not changed. The filename uses the clip-opening

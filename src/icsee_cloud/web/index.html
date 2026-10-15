@@ -46,7 +46,7 @@
 
       <section class="summary-grid" aria-label="Session summary">
         <article class="summary-card"><div class="summary-label"><span>Camera status</span><svg class="icon"><use href="/static/icons.svg#video"></use></svg></div><div class="summary-value"><span id="summary-connection">Connecting</span><span class="pill" id="summary-state-pill">WAITING</span></div><p id="summary-connection-note">Establishing your live view</p></article>
-        <article class="summary-card"><div class="summary-label"><span>Stream quality</span><svg class="icon"><use href="/static/icons.svg#monitor-play"></use></svg></div><div class="summary-value"><span id="summary-quality">—</span><small id="summary-resolution">—</small></div><p id="summary-quality-note">Original camera stream</p></article>
+        <article class="summary-card resolution-card"><div class="summary-label"><span>Received resolution</span><svg class="icon"><use href="/static/icons.svg#monitor-play"></use></svg></div><div class="summary-value"><span id="summary-quality">—</span><small id="summary-resolution">Awaiting video</small></div><p id="summary-quality-note">Actual received video dimensions</p></article>
         <article class="summary-card"><div class="summary-label"><span>Footage saved</span><svg class="icon"><use href="/static/icons.svg#hard-drive"></use></svg></div><div class="summary-value"><span id="saved-value">—</span><small id="saved-unit"></small></div><p id="saved-note">Recording information appears here</p></article>
       </section>
 
@@ -61,7 +61,7 @@
             <button class="exit-fullscreen icon-button" id="exit-fullscreen" aria-label="Exit fullscreen" title="Exit fullscreen"><svg class="icon"><use href="/static/icons.svg#x"></use></svg></button>
           </div>
           <footer class="video-toolbar"><button class="silent-preview" id="audio-info" title="About preview audio"><svg class="icon"><use href="/static/icons.svg#volume-x"></use></svg><span>Silent preview</span></button><div class="viewer-tools"><button class="icon-button" id="snapshot-button" aria-label="Save a snapshot" title="Save a snapshot" disabled><svg class="icon"><use href="/static/icons.svg#camera"></use></svg></button><span class="toolbar-divider"></span><button class="icon-button" id="fullscreen-button" aria-label="Expand live view" title="Expand live view"><svg class="icon"><use href="/static/icons.svg#expand"></use></svg></button></div></footer>
-          <div class="quality-row"><div><strong>Video quality</strong><p id="quality-hint">Choose the stream that works for you.</p></div><div class="quality-switch" role="group" aria-label="Camera quality"><button id="quality-low" aria-pressed="false" aria-label="Low quality substream">Low<span>SUB</span></button><button id="quality-high" aria-pressed="false" aria-label="High quality main stream">High<span>MAIN</span></button></div></div>
+          <div class="quality-row"><div><strong>Requested stream</strong><p id="quality-hint">Received resolution appears above.</p></div><div class="quality-switch" role="group" aria-label="Requested camera stream"><button id="quality-low" aria-pressed="false" aria-label="Request low quality substream">Low<span>SUB</span></button><button id="quality-high" aria-pressed="false" aria-label="Request high quality main stream">High<span>MAIN</span></button></div></div>
         </section>
 
         <div class="right-column">
